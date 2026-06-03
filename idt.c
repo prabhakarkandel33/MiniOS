@@ -61,6 +61,8 @@ static void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
 // called from isr.s with vector number as argument
 __attribute__((noreturn))
 void exception_handler(uint32_t vector) {
+    uint32_t cr2;
+    __asm__ volatile ("mov %%cr2, %0" : "=r"(cr2));
     terminal_setcolor(vga_entry_color(VGA_COLOR_WHITE, VGA_COLOR_RED));
     terminal_writestring("\n*** EXCEPTION ");
     terminal_writehex(vector);
@@ -68,6 +70,9 @@ void exception_handler(uint32_t vector) {
     if (vector < 32)
         terminal_writestring(exception_names[vector]);
     terminal_writestring(" ***\n");
+    terminal_writestring("CR2=");
+    terminal_writehex(cr2);
+    terminal_writestring("\n");
     terminal_writestring("System halted.\n");
     __asm__ volatile ("cli; hlt");
     __builtin_unreachable();

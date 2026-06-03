@@ -69,20 +69,16 @@ static volatile uint32_t b_count = 0;
 
 void task_a(void) {
     for (;;) {
-        mutex_acquire(term_mutex);
         terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_BLUE, VGA_COLOR_BLACK));
         terminal_putchar('A');
-        mutex_release(term_mutex);
         volatile uint32_t i = 0; while (i < 500000) i++;
     }
 }
 
 void task_b(void) {
     for (;;) {
-        mutex_acquire(term_mutex);
         terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_RED, VGA_COLOR_BLACK));
         terminal_putchar('B');
-        mutex_release(term_mutex);
         volatile uint32_t i = 0; while (i < 500000) i++;
     }
 }

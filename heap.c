@@ -88,9 +88,7 @@ void heap_init(void) {
         terminal_writestring("HEAP: init failed!\n");
         return;
     }
-    terminal_writestring("heap_start=");
-    terminal_writehex((uint32_t)heap_start);
-    terminal_writestring("\n");
+  
 }
 
 // -------------------------------------------------------

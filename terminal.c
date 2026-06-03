@@ -51,6 +51,14 @@ static void terminal_scroll(void) {
 }
 
 void terminal_putchar(char c) {
+   
+    // hard clamp — prevent any out of bounds access
+        __asm__ volatile ("cli");
+
+    if (terminal_row >= VGA_HEIGHT) terminal_row = VGA_HEIGHT - 1;
+    if (terminal_column >= VGA_WIDTH) terminal_column = VGA_WIDTH - 1;
+    
+   
     if (c == '\n') {
         terminal_column = 0;
         if (++terminal_row >= VGA_HEIGHT) {
@@ -83,6 +91,8 @@ void terminal_putchar(char c) {
             terminal_row = VGA_HEIGHT - 1;
         }
     }
+        __asm__ volatile ("sti");
+
 }
 
 void terminal_write(const char* data, size_t size) {

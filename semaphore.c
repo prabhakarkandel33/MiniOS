@@ -20,18 +20,19 @@ void semaphore_acquire(semaphore_t* s) {
     lock_tasks();
     if (s->current_count < s->max_count) {
         s->current_count++;
-    } else {
-        // add to end of waiting list
-        current_task->next = 0;
-        if (!s->first_waiting) {
-            s->first_waiting = current_task;
-        } else {
-            s->last_waiting->next = current_task;
-        }
-        s->last_waiting = current_task;
-        block_task(TASK_BLOCKED);
+        unlock_tasks();
+        return;
     }
-    unlock_tasks();
+    // add to waiting list
+    current_task->next = 0;
+    if (!s->first_waiting) {
+        s->first_waiting = current_task;
+    } else {
+        s->last_waiting->next = current_task;
+    }
+    s->last_waiting = current_task;
+    unlock_tasks();              // unlock BEFORE blocking
+    block_task(TASK_BLOCKED);   // now safe to block
 }
 
 void semaphore_release(semaphore_t* s) {
