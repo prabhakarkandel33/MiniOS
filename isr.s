@@ -87,24 +87,28 @@ isr_stub_table:
 
 .section .text
 .extern irq_handler
+.macro irq_stub_fn num handler
+irq_stub_\num:
+    call \handler
+    iret
+.endm
 
-
-irq_stub_0:  call irq_handler; iret   # timer
-irq_stub_1:  call keyboard_handler; iret   # keyboard
-irq_stub_2:  call irq_handler; iret
-irq_stub_3:  call irq_handler; iret
-irq_stub_4:  call irq_handler; iret
-irq_stub_5:  call irq_handler; iret
-irq_stub_6:  call irq_handler; iret
-irq_stub_7:  call irq_handler; iret
-irq_stub_8:  call irq_handler; iret
-irq_stub_9:  call irq_handler; iret
-irq_stub_10: call irq_handler; iret
-irq_stub_11: call irq_handler; iret
-irq_stub_12: call irq_handler; iret
-irq_stub_13: call irq_handler; iret
-irq_stub_14: call irq_handler; iret
-irq_stub_15: call irq_handler; iret
+irq_stub_fn 0  irq_handler
+irq_stub_fn 1  keyboard_handler
+irq_stub_fn 2  irq_handler
+irq_stub_fn 3  irq_handler
+irq_stub_fn 4  irq_handler
+irq_stub_fn 5  irq_handler
+irq_stub_fn 6  irq_handler
+irq_stub_fn 7  irq_handler
+irq_stub_fn 8  irq_handler
+irq_stub_fn 9  irq_handler
+irq_stub_fn 10 irq_handler
+irq_stub_fn 11 irq_handler
+irq_stub_fn 12 irq_handler
+irq_stub_fn 13 irq_handler
+irq_stub_fn 14 irq_handler
+irq_stub_fn 15 irq_handler
 
 .section .rodata 
 .global irq_stub_table

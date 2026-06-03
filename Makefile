@@ -15,7 +15,7 @@ CFLAGS  = -std=gnu99 -ffreestanding -O2 -Wall -Wextra
 LDFLAGS = -T linker.ld -ffreestanding -O2 -nostdlib -lgcc
 
 # Files
-OBJ     = boot.o kernel.o gdt.o gdt_flush.o idt.o isr.o pic.o keyboard.o terminal.o paging.o paging_asm.o pmm.o heap.o
+OBJ     = boot.o kernel.o gdt.o gdt_flush.o idt.o isr.o pic.o keyboard.o terminal.o paging.o paging_asm.o pmm.o heap.o task.o switch.o
 KERNEL  = myos
 ISO     = myos.iso
 ISODIR  = isodir
@@ -64,6 +64,12 @@ pmm.o: pmm.c pmm.h
 
 heap.o: heap.c heap.h
 	$(CC) -c $< -o $@ $(CFLAGS)
+
+task.o: task.c task.h
+	$(CC) -c $< -o $@ $(CFLAGS)
+
+switch.o: switch.s
+	$(AS) $(ASFLAGS) $< -o $@
 
 $(KERNEL): $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $^

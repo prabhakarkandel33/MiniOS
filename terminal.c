@@ -11,7 +11,6 @@ static size_t    terminal_row;
 static size_t    terminal_column;
 static uint8_t   terminal_color;
 static uint16_t* terminal_buffer = (uint16_t*)0xC03FF000;
-
 static size_t strlen(const char* str) {
     size_t len = 0;
     while (str[len]) len++;
@@ -54,16 +53,32 @@ static void terminal_scroll(void) {
 void terminal_putchar(char c) {
     if (c == '\n') {
         terminal_column = 0;
-        if (++terminal_row == VGA_HEIGHT) {
+        if (++terminal_row >= VGA_HEIGHT) {
             terminal_scroll();
             terminal_row = VGA_HEIGHT - 1;
         }
         return;
     }
-    terminal_buffer[terminal_row * VGA_WIDTH + terminal_column] = vga_entry(c, terminal_color);
-    if (++terminal_column == VGA_WIDTH) {
+
+    // bounds check — prevent out of bounds write
+    if (terminal_row >= VGA_HEIGHT) {
+        terminal_scroll();
+        terminal_row = VGA_HEIGHT - 1;
+    }
+    if (terminal_column >= VGA_WIDTH) {
         terminal_column = 0;
-        if (++terminal_row == VGA_HEIGHT) {
+        if (++terminal_row >= VGA_HEIGHT) {
+            terminal_scroll();
+            terminal_row = VGA_HEIGHT - 1;
+        }
+    }
+
+    terminal_buffer[terminal_row * VGA_WIDTH + terminal_column] = 
+        vga_entry(c, terminal_color);
+    
+    if (++terminal_column >= VGA_WIDTH) {
+        terminal_column = 0;
+        if (++terminal_row >= VGA_HEIGHT) {
             terminal_scroll();
             terminal_row = VGA_HEIGHT - 1;
         }

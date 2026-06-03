@@ -6,6 +6,9 @@
 #define HEAP_MAGIC    0xDEADBEEF   // marks a valid header
 #define MIN_SPLIT     32           // don't split if remainder < this
 
+#define HEAP_VIRT_BASE 0xC0400000   // heap virtual addresses start here
+static uint32_t heap_virt_next = HEAP_VIRT_BASE;
+
 typedef struct heap_block {
     uint32_t           magic;
     uint32_t           size;    // usable bytes (not counting header)
@@ -18,15 +21,19 @@ static heap_block_t* heap_start = 0;
 // -------------------------------------------------------
 // internal: ask PMM for n frames and return as one block
 // -------------------------------------------------------
+
 static heap_block_t* heap_grow(size_t size) {
     (void)size;
 
     pageframe_t base = pmm_alloc_frame();
     if (base == PMM_ERROR) return 0;
 
-    paging_map(base, base);
+    // map physical frame to next available virtual address
+    uint32_t virt = heap_virt_next;
+    heap_virt_next += PAGE_SIZE;
+    paging_map(virt, base);
 
-    heap_block_t* block = (heap_block_t*)base;
+    heap_block_t* block = (heap_block_t*)virt;   // use VIRTUAL address
     block->magic = HEAP_MAGIC;
     block->size  = PAGE_SIZE - sizeof(heap_block_t);
     block->free  = 1;
@@ -76,10 +83,14 @@ static void heap_coalesce(void) {
 // public: initialize heap with one frame
 // -------------------------------------------------------
 void heap_init(void) {
-    heap_start = heap_grow(0);   // grab one frame to start
+    heap_start = heap_grow(0);
     if (!heap_start) {
         terminal_writestring("HEAP: init failed!\n");
+        return;
     }
+    terminal_writestring("heap_start=");
+    terminal_writehex((uint32_t)heap_start);
+    terminal_writestring("\n");
 }
 
 // -------------------------------------------------------
@@ -157,3 +168,5 @@ void heap_print(void) {
         cur = cur->next;
     }
 }
+
+uint32_t heap_get_start(void) { return (uint32_t)heap_start; }

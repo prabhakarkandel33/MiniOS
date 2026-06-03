@@ -1,5 +1,7 @@
 #include "pmm.h"
 #include "terminal.h"
+#define KERNEL_VIRT_BASE 0xC0000000
+
 
 // endkernel is a linker symbol — its ADDRESS is what matters, not its value
 extern uint32_t endkernel;
@@ -31,11 +33,12 @@ static pageframe_t alloc_frame_internal(void) {
 // total_memory_bytes = how much RAM the machine has
 // -------------------------------------------------------
 void pmm_init(uint32_t total_memory_bytes) {
-    frame_map = (uint8_t*)(&endkernel);
+    frame_map = (uint8_t*)(&endkernel);  // virtual — OK for access
     npages    = total_memory_bytes / 0x1000;
 
-    uint32_t map_end = (uint32_t)frame_map + npages;
-    startframe       = (map_end + 0xFFF) & ~0xFFF;
+    // compute startframe as PHYSICAL address
+    uint32_t map_phys_end = ((uint32_t)(&endkernel) - KERNEL_VIRT_BASE) + npages;
+    startframe = (map_phys_end + 0xFFF) & ~0xFFF;  // physical, 4KB aligned
 
     for (uint32_t i = 0; i < npages; i++)
         frame_map[i] = PMM_FREE;
@@ -91,4 +94,8 @@ void pmm_print_stats(void) {
     terminal_writestring(" free=");
     terminal_writehex(free * 0x1000);
     terminal_writestring("\n");
+}
+
+uint32_t pmm_startframe(void){
+    return startframe;
 }

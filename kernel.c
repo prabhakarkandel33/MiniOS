@@ -7,16 +7,34 @@
 #include "paging.h"
 #include "pmm.h"
 #include "heap.h"
+#include "task.h"
 
 #if defined(__linux__)
 #error "You are not using a cross compiler, expect trouble"
 #endif
 
-static uint32_t tick = 0;
+volatile uint32_t tick = 0;
+static volatile uint8_t multitasking_ready = 0;
+
+
+void task_a(void);
+void task_b(void);
+void task_c(void);
+void task_monitor(void);
+void task_terminating(void);
+
 
 void irq_handler(void) {
     tick++;
     pic_eoi(0);
+
+    if (!multitasking_ready) return;
+
+    if (time_slice_remaining > 0) {
+        time_slice_remaining--;
+    } else {
+        schedule();    // slice expired or was 0 — switch now
+    }
 }
 
 void kernel_main(void) {
@@ -27,10 +45,60 @@ void kernel_main(void) {
     idt_init();
     pmm_init(32 * 1024 * 1024);
     heap_init();
+    multitasking_init();
 
-    terminal_writestring("kernel start=");
+    terminal_setcolor(vga_entry_color(VGA_COLOR_GREEN, VGA_COLOR_BLACK));
+    terminal_writestring("Kernel booted.\n");
+    terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
 
-    
+    create_kernel_task(task_a, "task_a");
+    create_kernel_task(task_b, "task_b");
+    create_kernel_task(task_terminating, "terminating");
 
+    multitasking_ready = 1;
     for (;;) __asm__ volatile ("hlt");
+}
+
+static volatile uint32_t a_count = 0;
+static volatile uint32_t b_count = 0;
+
+void task_a(void) {
+    for (;;) {
+        a_count++;
+        terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_BLUE, VGA_COLOR_BLACK));
+        terminal_putchar('A');
+        volatile uint32_t i = 0; while (i < 2000000) i++;  // slower
+    }
+}
+
+void task_b(void) {
+    for (;;) {
+        b_count++;
+        terminal_putchar('B');
+        volatile uint32_t i = 0; while (i < 2000000) i++;  // slower
+    }
+}
+
+void task_monitor(void) {
+    for (;;) {
+        volatile uint32_t i = 0; while (i < 5000000) i++;
+        // terminal_setcolor(vga_entry_color(VGA_COLOR_WHITE, VGA_COLOR_BLACK));
+        // terminal_writestring("\nA=");
+        // terminal_writehex(a_count);
+        // terminal_writestring(" B=");
+        // terminal_writehex(b_count);
+        // terminal_writestring(" tick=");
+        // terminal_writehex(tick);
+        // terminal_writestring("\n");
+    }
+}
+
+void task_terminating(void) {
+    terminal_setcolor(vga_entry_color(VGA_COLOR_GREEN, VGA_COLOR_BLACK));
+    terminal_writestring("task starting\n");
+    volatile uint32_t i = 0; while (i < 3000000) i++;
+    terminal_writestring("task terminating\n");
+    terminate_task();
+    // should never reach here
+    terminal_writestring("ERROR: still running\n");
 }

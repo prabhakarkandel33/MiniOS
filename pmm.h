@@ -20,4 +20,6 @@ void pmm_free_frame(pageframe_t addr);
 
 void pmm_print_stats(void);
 
+uint32_t pmm_startframe(void);
+
 #endif

@@ -14,5 +14,6 @@
 
 void paging_init(void);
 void paging_map(uint32_t virt, uint32_t phys);
+void paging_debug(void);
 
 #endif
