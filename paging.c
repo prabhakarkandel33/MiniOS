@@ -52,14 +52,16 @@ void paging_map(uint32_t virt, uint32_t phys) {
         uint32_t* new_table = alloc_page_table();
         if (!new_table) return;
         // store PHYSICAL address in directory entry
-        page_directory[dir_index] = ((uint32_t)new_table - KERNEL_VIRT_BASE)
-                                    | PAGE_PRESENT | PAGE_WRITABLE;
+         page_directory[dir_index] = ((uint32_t)new_table - KERNEL_VIRT_BASE)
+                            | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+
+        
     }
 
     // get virtual address of table for writing entries
     uint32_t phys_table = page_directory[dir_index] & ~0xFFF;
     uint32_t* table = (uint32_t*)(phys_table + KERNEL_VIRT_BASE);
-    table[table_index] = phys | PAGE_PRESENT | PAGE_WRITABLE;
+   table[table_index] = phys | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
 
     __asm__ volatile ("invlpg (%0)" : : "r"(virt) : "memory");
 }
@@ -69,13 +71,12 @@ void paging_init(void) {
         page_directory[i] = PAGE_WRITABLE;
 
     for (int i = 0; i < PAGE_TABLE_SIZE; i++)
-        first_table[i] = (i * PAGE_SIZE) | PAGE_PRESENT | PAGE_WRITABLE;
+        first_table[i] = (i * PAGE_SIZE) | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
 
-    // map VGA buffer at slot 1023 → virtual 0xC03FF000
-    first_table[1023] = (0x000B8000) | PAGE_PRESENT | PAGE_WRITABLE;
+    first_table[1023] = (0x000B8000) | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
 
-    page_directory[0]   = ((uint32_t)first_table - KERNEL_VIRT_BASE) | PAGE_PRESENT | PAGE_WRITABLE;
-    page_directory[768] = ((uint32_t)first_table - KERNEL_VIRT_BASE) | PAGE_PRESENT | PAGE_WRITABLE;
+    page_directory[0]   = ((uint32_t)first_table - KERNEL_VIRT_BASE) | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+    page_directory[768] = ((uint32_t)first_table - KERNEL_VIRT_BASE) | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
 
     load_page_directory((uint32_t*)((uint32_t)page_directory - KERNEL_VIRT_BASE));
     enable_paging();

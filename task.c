@@ -4,6 +4,7 @@
 #include "terminal.h"
 #include "pic.h"
 #include <stdint.h>
+#include "tss.h"
 
 tcb_t* current_task = 0;
 extern volatile uint32_t tick;
@@ -52,14 +53,14 @@ static int postpone_count = 0;
 static int task_switch_postponed = 0;
 
 
-void do_task_switch(tcb_t* next){
+void do_task_switch(tcb_t* next) {
     update_time_used();
     next->last_tick = tick;
-    if (next == idle_task){
+    tss_set_kernel_stack((uint32_t)next->esp0);  // add this
+    if (next == idle_task)
         time_slice_remaining = 0;
-    }else {
+    else
         time_slice_remaining = TIME_SLICE_MS;
-    }
     switch_to_task(next);
 }
 
