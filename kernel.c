@@ -8,6 +8,10 @@
 #include "pmm.h"
 #include "heap.h"
 #include "task.h"
+#include "semaphore.h"
+
+
+semaphore_t* term_mutex;
 
 #if defined(__linux__)
 #error "You are not using a cross compiler, expect trouble"
@@ -37,6 +41,7 @@ void irq_handler(void) {
     }
 }
 
+
 void kernel_main(void) {
     gdt_init();
     paging_init();
@@ -51,10 +56,9 @@ void kernel_main(void) {
     terminal_writestring("Kernel booted.\n");
     terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
 
+    term_mutex = mutex_create();
     create_kernel_task(task_a, "task_a");
     create_kernel_task(task_b, "task_b");
-    create_kernel_task(task_terminating, "terminating");
-
     multitasking_ready = 1;
     for (;;) __asm__ volatile ("hlt");
 }
@@ -62,20 +66,24 @@ void kernel_main(void) {
 static volatile uint32_t a_count = 0;
 static volatile uint32_t b_count = 0;
 
+
 void task_a(void) {
     for (;;) {
-        a_count++;
+        mutex_acquire(term_mutex);
         terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_BLUE, VGA_COLOR_BLACK));
         terminal_putchar('A');
-        volatile uint32_t i = 0; while (i < 2000000) i++;  // slower
+        mutex_release(term_mutex);
+        volatile uint32_t i = 0; while (i < 500000) i++;
     }
 }
 
 void task_b(void) {
     for (;;) {
-        b_count++;
+        mutex_acquire(term_mutex);
+        terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_RED, VGA_COLOR_BLACK));
         terminal_putchar('B');
-        volatile uint32_t i = 0; while (i < 2000000) i++;  // slower
+        mutex_release(term_mutex);
+        volatile uint32_t i = 0; while (i < 500000) i++;
     }
 }
 
