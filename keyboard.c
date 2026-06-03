@@ -1,7 +1,7 @@
-// keyboard.c
 #include "keyboard.h"
 #include "pic.h"
-#include "terminal.h"    // replaces extern void terminal_putchar()
+#include "terminal.h"
+#include "shell.h"
 
 static const char scancode_table[128] = {
     0,    0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-',  '=', '\b', '\t',
@@ -18,7 +18,7 @@ void keyboard_handler(void) {
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
     if (!(scancode & 0x80)) {
         char c = scancode_table[scancode];
-        if (c) terminal_putchar(c);
+        if (c) shell_handle_key(c);
     }
     pic_eoi(1);
 }

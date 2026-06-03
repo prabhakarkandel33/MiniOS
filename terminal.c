@@ -2,6 +2,7 @@
 #include "terminal.h"
 #include <stddef.h>
 #include <stdint.h>
+#include "io.h"
 
 #define VGA_WIDTH  80
 #define VGA_HEIGHT 25
@@ -15,6 +16,14 @@ static size_t strlen(const char* str) {
     size_t len = 0;
     while (str[len]) len++;
     return len;
+}
+
+static void update_cursor(void) {
+    uint16_t pos = terminal_row * VGA_WIDTH + terminal_column;
+    outb(0x3D4, 0x0F);
+    outb(0x3D5, (uint8_t)(pos & 0xFF));
+    outb(0x3D4, 0x0E);
+    outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
 
 static inline uint16_t vga_entry(unsigned char uc, uint8_t color) {
@@ -36,6 +45,8 @@ void terminal_initialize(void) {
     for (size_t y = 0; y < VGA_HEIGHT; y++)
         for (size_t x = 0; x < VGA_WIDTH; x++)
             terminal_buffer[y * VGA_WIDTH + x] = vga_entry(' ', terminal_color);
+    
+    update_cursor();
 }
 
 void terminal_setcolor(uint8_t color) {
@@ -51,39 +62,40 @@ static void terminal_scroll(void) {
 }
 
 void terminal_putchar(char c) {
-   
-    // hard clamp — prevent any out of bounds access
-        __asm__ volatile ("cli");
+    __asm__ volatile ("cli");
 
     if (terminal_row >= VGA_HEIGHT) terminal_row = VGA_HEIGHT - 1;
     if (terminal_column >= VGA_WIDTH) terminal_column = VGA_WIDTH - 1;
-    
-   
+
     if (c == '\n') {
         terminal_column = 0;
         if (++terminal_row >= VGA_HEIGHT) {
             terminal_scroll();
             terminal_row = VGA_HEIGHT - 1;
         }
+        __asm__ volatile ("sti");
         return;
     }
 
-    // bounds check — prevent out of bounds write
-    if (terminal_row >= VGA_HEIGHT) {
-        terminal_scroll();
-        terminal_row = VGA_HEIGHT - 1;
-    }
-    if (terminal_column >= VGA_WIDTH) {
-        terminal_column = 0;
-        if (++terminal_row >= VGA_HEIGHT) {
-            terminal_scroll();
-            terminal_row = VGA_HEIGHT - 1;
+    // handle backspace
+    if (c == '\b') {
+        if (terminal_column > 0) {
+            terminal_column--;
+        } else if (terminal_row > 0) {
+            // wrap to end of previous line
+            terminal_row--;
+            terminal_column = VGA_WIDTH - 1;
         }
+        // write space to erase the character visually
+        terminal_buffer[terminal_row * VGA_WIDTH + terminal_column] =
+            vga_entry(' ', terminal_color);
+        __asm__ volatile ("sti");
+        return;
     }
 
-    terminal_buffer[terminal_row * VGA_WIDTH + terminal_column] = 
+    terminal_buffer[terminal_row * VGA_WIDTH + terminal_column] =
         vga_entry(c, terminal_color);
-    
+
     if (++terminal_column >= VGA_WIDTH) {
         terminal_column = 0;
         if (++terminal_row >= VGA_HEIGHT) {
@@ -91,8 +103,9 @@ void terminal_putchar(char c) {
             terminal_row = VGA_HEIGHT - 1;
         }
     }
-        __asm__ volatile ("sti");
+    update_cursor();
 
+    __asm__ volatile ("sti");
 }
 
 void terminal_write(const char* data, size_t size) {

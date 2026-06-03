@@ -10,6 +10,7 @@
 #include "task.h"
 #include "semaphore.h"
 #include "tss.h"
+#include "shell.h"
 
 semaphore_t* term_mutex;
 
@@ -41,6 +42,7 @@ void irq_handler(void) {
     }
 }
 
+
 void kernel_main(void) {
     gdt_init();
     paging_init();
@@ -51,18 +53,20 @@ void kernel_main(void) {
     heap_init();
     multitasking_init();
 
-    terminal_setcolor(vga_entry_color(VGA_COLOR_GREEN, VGA_COLOR_BLACK));
-    terminal_writestring("Kernel booted.\n");
-    terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
-
+    // set up TSS
     uint32_t esp;
     __asm__ volatile ("mov %%esp, %0" : "=r"(esp));
     tss_install(esp);
     tss_flush();
-    terminal_writestring("TSS installed.\n");
-    terminal_writestring("Switching to user mode...\n");
-    switch_to_user_mode();
-    terminal_writestring("ERROR: still in kernel mode\n");
+
+    terminal_setcolor(vga_entry_color(VGA_COLOR_GREEN, VGA_COLOR_BLACK));
+    terminal_writestring("Kernel booted.\n");
+    terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
+
+    create_kernel_task(shell_run, "shell");
+
+    multitasking_ready = 1;
+    for (;;) __asm__ volatile ("hlt");
 }
 
 void task_a(void) {
