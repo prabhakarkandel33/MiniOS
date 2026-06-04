@@ -11,6 +11,7 @@
 #include "semaphore.h"
 #include "tss.h"
 #include "shell.h"
+#include "elf.h"
 
 semaphore_t* term_mutex;
 
@@ -20,6 +21,11 @@ semaphore_t* term_mutex;
 
 volatile uint32_t tick = 0;
 static volatile uint8_t multitasking_ready = 0;
+
+extern uint8_t _binary_test_module_o_start[];
+extern uint8_t _binary_test_module_o_end[];
+extern uint32_t _binary_test_module_o_size;
+
 
 void task_a(void);
 void task_b(void);
@@ -63,6 +69,7 @@ void kernel_main(void) {
     terminal_writestring("Kernel booted.\n");
     terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
 
+   
     create_kernel_task(shell_run, "shell");
 
     multitasking_ready = 1;
