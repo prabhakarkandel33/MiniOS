@@ -12,6 +12,9 @@
 #define PAGE_WRITABLE   0x2
 #define PAGE_USER       0x4
 
+#define USER_STACK_VIRT  0x00800000   // user stack virtual address
+#define USER_STACK_SIZE  4096         // one page for now
+
 void paging_init(void);
 void paging_map(uint32_t virt, uint32_t phys);
 void paging_debug(void);

@@ -33,7 +33,22 @@ void task_c(void);
 void task_monitor(void);
 void task_terminating(void);
 
-extern void switch_to_user_mode(void);
+extern void switch_to_user_mode(uint32_t user_stack);
+
+static uint32_t setup_user_stack(void) {
+    // allocate one physical frame for user stack
+    pageframe_t frame = pmm_alloc_frame();
+    if (frame == PMM_ERROR) {
+        terminal_writestring("ERROR: no frame for user stack\n");
+        return 0;
+    }
+
+    // map it at USER_STACK_VIRT with user accessible flag
+    paging_map(USER_STACK_VIRT, frame);
+
+    // stack grows downward — return top of stack
+    return USER_STACK_VIRT + USER_STACK_SIZE;
+}
 
 void irq_handler(void) {
     tick++;
@@ -59,7 +74,6 @@ void kernel_main(void) {
     heap_init();
     multitasking_init();
 
-    // set up TSS
     uint32_t esp;
     __asm__ volatile ("mov %%esp, %0" : "=r"(esp));
     tss_install(esp);
@@ -69,11 +83,10 @@ void kernel_main(void) {
     terminal_writestring("Kernel booted.\n");
     terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
 
-   
-    create_kernel_task(shell_run, "shell");
 
-    multitasking_ready = 1;
-    for (;;) __asm__ volatile ("hlt");
+
+    // never reaches here
+    terminal_writestring("ERROR: still in kernel\n");
 }
 
 void task_a(void) {
