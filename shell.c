@@ -6,6 +6,7 @@
 #include "heap.h"
 #include <stdint.h>
 #include <stddef.h>
+#include "ramfs.h"
 
 #define INPUT_BUFFER_SIZE 256
 #define MAX_ARGS          16
@@ -67,6 +68,11 @@ static void cmd_help(void) {
     terminal_writestring("  meminfo  - show memory stats\n");
     terminal_writestring("  tasks    - show task info\n");
     terminal_writestring("  version  - show kernel version\n");
+    terminal_writestring("  ls       - list files\n");
+    terminal_writestring("  cat      - print file contents\n");
+    terminal_writestring("  rm       - delete a file\n");
+    terminal_writestring("  write    - write content to file\n");
+
 }
 
 // -------------------------------------------------------
@@ -123,16 +129,23 @@ static void cmd_tasks(void) {
 static void process_command(void) {
     // skip leading spaces
     int i = 0;
-    while (input_buffer[i] == ' ') i++;
+    while (input_buffer[i] == ' ')
+        i++;
 
     char* cmd = input_buffer + i;
-    if (shell_strlen(cmd) == 0) return;
+
+    if (shell_strlen(cmd) == 0)
+        return;
 
     // find where args start (after first word)
     int j = i;
-    while (input_buffer[j] && input_buffer[j] != ' ') j++;
+    while (input_buffer[j] && input_buffer[j] != ' ')
+        j++;
+
     char* args = input_buffer + j;
-    if (*args == ' ') args++;  // skip space between cmd and args
+
+    if (*args == ' ')
+        args++;  // skip space between cmd and args
 
     // null terminate the command word temporarily
     char saved = input_buffer[j];
@@ -140,26 +153,115 @@ static void process_command(void) {
 
     if (shell_strcmp(cmd, "help") == 0) {
         cmd_help();
+
     } else if (shell_strcmp(cmd, "clear") == 0) {
         cmd_clear();
+
     } else if (shell_strcmp(cmd, "echo") == 0) {
         cmd_echo(args);
+
     } else if (shell_strcmp(cmd, "meminfo") == 0) {
         cmd_meminfo();
+
     } else if (shell_strcmp(cmd, "version") == 0) {
         cmd_version();
+
     } else if (shell_strcmp(cmd, "tasks") == 0) {
         cmd_tasks();
+
+    } else if (shell_strcmp(cmd, "ls") == 0) {
+        ramfs_list();
+
+    } else if (shell_strcmp(cmd, "cat") == 0) {
+
+        if (shell_strlen(args) == 0) {
+            terminal_writestring("usage: cat <filename>\n");
+        } else {
+            ramfs_node_t* node = ramfs_find(args);
+
+            if (!node) {
+                terminal_writestring("cat: file not found: ");
+                terminal_writestring(args);
+                terminal_writestring("\n");
+
+            } else if (!node->data) {
+                terminal_writestring("(empty file)\n");
+
+            } else {
+                for (uint32_t k = 0; k < node->size; k++)
+                    terminal_putchar((char)node->data[k]);
+
+                terminal_putchar('\n');
+            }
+        }
+
+    } else if (shell_strcmp(cmd, "rm") == 0) {
+
+        if (shell_strlen(args) == 0) {
+            terminal_writestring("usage: rm <filename>\n");
+        } else {
+            ramfs_delete(args);
+            terminal_writestring("deleted: ");
+            terminal_writestring(args);
+            terminal_writestring("\n");
+        }
+
+    } else if (shell_strcmp(cmd, "write") == 0) {
+
+        // usage: write filename content
+        if (shell_strlen(args) == 0) {
+            terminal_writestring("usage: write <filename> <content>\n");
+
+        } else {
+
+            // split args into filename and content
+            int k = 0;
+            while (args[k] && args[k] != ' ')
+                k++;
+
+            if (args[k] == '\0') {
+                terminal_writestring("usage: write <filename> <content>\n");
+
+            } else {
+
+                char filename[64];
+                int m = 0;
+
+                while (m < k && m < 63) {
+                    filename[m] = args[m];
+                    m++;
+                }
+
+                filename[m] = '\0';
+
+                char* content = args + k + 1;
+                uint32_t len = (uint32_t)shell_strlen(content);
+
+                if (ramfs_write(filename, (uint8_t*)content, len) == 0) {
+                    terminal_writestring("written: ");
+                    terminal_writestring(filename);
+                    terminal_writestring("\n");
+
+                } else {
+                    terminal_writestring("write failed\n");
+                }
+            }
+        }
+
     } else {
-        terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_RED, VGA_COLOR_BLACK));
+        terminal_setcolor(
+            vga_entry_color(VGA_COLOR_LIGHT_RED, VGA_COLOR_BLACK));
         terminal_writestring("Unknown command: ");
-        terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
+
+        terminal_setcolor(
+            vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
         terminal_writestring(cmd);
         terminal_writestring("\n");
         terminal_writestring("Type 'help' for available commands.\n");
     }
 
-    input_buffer[j] = saved;  // restore
+    // restore original buffer
+    input_buffer[j] = saved;
 }
 
 // -------------------------------------------------------

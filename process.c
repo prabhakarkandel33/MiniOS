@@ -8,6 +8,14 @@
 #include <stdint.h>
 
 static uint32_t next_pid = 1;
+static uint32_t current_user_stack = 0;
+
+
+void process_user_entry(void) {
+    // called in kernel mode — switch to user mode with our stack
+    extern void switch_to_user_mode(uint32_t user_stack);
+    switch_to_user_mode(current_user_stack);
+}
 
 process_t* process_create(void (*entry)(void), const char* name) {
     process_t* proc = (process_t*)kmalloc(sizeof(process_t));
@@ -29,19 +37,19 @@ process_t* process_create(void (*entry)(void), const char* name) {
     paging_map_in(dir, USER_STACK_VIRT, stack_frame);
     proc->user_stack = USER_STACK_VIRT + USER_STACK_SIZE;
 
+    current_user_stack = proc->user_stack;
     // step 3 — create kernel task for this process
     // the task starts in kernel mode then switches to user mode
-    proc->task = create_kernel_task(entry, name);
+    proc->task = create_kernel_task(process_user_entry, name);   
     if (!proc->task) { kfree(proc); return 0; }
 
     // step 4 — point task's CR3 to new page directory
     proc->task->cr3 = (void*)proc->page_dir_phys;
-
-    terminal_writestring("process created: ");
-    terminal_writestring(name);
-    terminal_writestring(" pid=");
-    terminal_writehex(proc->id);
-    terminal_writestring("\n");
+    // terminal_writestring("process created: ");
+    // terminal_writestring(name);
+    // terminal_writestring(" pid=");
+    // terminal_writehex(proc->id);
+    // terminal_writestring("\n");
 
     return proc;
 }
@@ -51,3 +59,4 @@ void process_destroy(process_t* proc) {
     terminate_task();
     kfree(proc);
 }
+

@@ -22,5 +22,6 @@ typedef struct{
 
 
 void idt_init(void);
+extern void* syscall_stub_addr[];
 
 #endif

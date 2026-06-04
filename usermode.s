@@ -30,4 +30,17 @@ switch_to_user_mode:
     iretl
 
 user_entry:
-    jmp user_entry         # spin in Ring 3
+    mov $2, %eax        # SYS_WRITE
+    mov $1, %ebx        # stdout
+    mov $msg, %ecx      # buffer — kernel address, accessible from user
+    mov $17, %edx       # length
+    int $0x80
+
+    mov $1, %eax        # SYS_EXIT
+    xor %ebx, %ebx
+    int $0x80
+
+    jmp user_entry
+
+msg:
+    .asciz "hello from ring3\n"   # spin in Ring 3

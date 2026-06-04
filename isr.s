@@ -117,3 +117,24 @@ irq_stub_table:
 .long irq_stub_4,  irq_stub_5,  irq_stub_6,  irq_stub_7
 .long irq_stub_8,  irq_stub_9,  irq_stub_10, irq_stub_11
 .long irq_stub_12, irq_stub_13, irq_stub_14, irq_stub_15
+
+# syscall stub — vector 0x80
+.section .text
+.extern syscall_handler
+
+syscall_stub:
+    pushl $0          # dummy error code
+    pushl $0x80       # vector number
+    pusha             # save all registers
+    push %esp         # pass pointer to registers as argument
+    call syscall_handler
+    add $4, %esp      # clean up argument
+    mov %eax, 28(%esp) # store return value back into saved eax
+    popa              # restore registers
+    addl $8, %esp     # clean up vector + error code
+    iret
+
+.section .rodata
+.global syscall_stub_addr
+syscall_stub_addr:
+.long syscall_stub

@@ -88,6 +88,11 @@ void idt_init(void) {
     for (uint8_t irq = 0; irq < 16; irq++)
         idt_set_descriptor(32 + irq, irq_stub_table[irq], 0x8E);
 
+    idt_set_descriptor(0x80, syscall_stub_addr[0], 0xEE);
+    // terminal_writestring("syscall IDT[0x80] set to ");
+    // terminal_writehex((uint32_t)syscall_stub_addr[0]);
+    // terminal_writestring("\n");
+
     __asm__ volatile ("lidt %0" : : "m"(idtr));
     __asm__ volatile ("sti");
 }

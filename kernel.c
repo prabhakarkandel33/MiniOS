@@ -13,6 +13,9 @@
 #include "shell.h"
 #include "elf.h"
 #include "process.h"
+#include "syscall.h"
+#include "ramfs.h"
+
 
 semaphore_t* term_mutex;
 
@@ -73,6 +76,8 @@ void user_process_entry(void) {
 
 
 
+
+
 void kernel_main(void) {
     gdt_init();
     paging_init();
@@ -88,10 +93,19 @@ void kernel_main(void) {
     tss_install(esp);
     tss_flush();
 
+    ramfs_init();
+    ramfs_create("readme.txt", (uint8_t*)"Welcome to prabhakarOS!\n", 24);
+    ramfs_create("hello.txt", (uint8_t*)"Hello, World!\n", 14);
+
+    // debug — list right after creating
+    terminal_writestring("files after create:\n");
+    ramfs_list();
+    
     terminal_setcolor(vga_entry_color(VGA_COLOR_GREEN, VGA_COLOR_BLACK));
     terminal_writestring("Kernel booted.\n");
     terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
 
+    process_create(0, "init");
     create_kernel_task(shell_run, "shell");
 
     multitasking_ready = 1;
