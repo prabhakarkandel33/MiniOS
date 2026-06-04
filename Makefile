@@ -15,7 +15,7 @@ CFLAGS  = -std=gnu99 -ffreestanding -O2 -Wall -Wextra
 LDFLAGS = -T linker.ld -ffreestanding -O2 -nostdlib -lgcc
 
 # Files
-OBJ     = boot.o kernel.o gdt.o gdt_flush.o idt.o isr.o pic.o keyboard.o terminal.o paging.o paging_asm.o pmm.o heap.o task.o switch.o semaphore.o tss.o usermode.o shell.o elf.o test_module.o module_blob.o 
+OBJ     = boot.o kernel.o gdt.o gdt_flush.o idt.o isr.o pic.o keyboard.o terminal.o paging.o paging_asm.o pmm.o heap.o task.o switch.o semaphore.o tss.o usermode.o shell.o elf.o test_module.o module_blob.o process.o
 KERNEL  = myos
 ISO     = myos.iso
 ISODIR  = isodir
@@ -91,6 +91,9 @@ test_module.o: test_module.c
 
 module_blob.o: test_module.o
 	i686-elf-ld -r -b binary test_module.o -o module_blob.o
+
+process.o: process.c process.h
+	$(CC) -c $< -o $@ $(CFLAGS)
 
 $(KERNEL): $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $^

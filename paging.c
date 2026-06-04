@@ -7,8 +7,9 @@
 #define KERNEL_VIRT_BASE 0xC0000000
 
 
-static uint32_t page_directory[PAGE_DIR_SIZE] __attribute__((aligned(4096)));
-static uint32_t first_table[1024]             __attribute__((aligned(4096)));
+
+uint32_t page_directory[PAGE_DIR_SIZE] __attribute__((aligned(4096)));
+static uint32_t first_table[1024] __attribute__((aligned(4096)));
 
 // small pool of page tables for directories 1-15 (covers first 64MB)
 // lives in kernel BSS — always mapped — no chicken-and-egg
@@ -80,4 +81,48 @@ void paging_init(void) {
 
     load_page_directory((uint32_t*)((uint32_t)page_directory - KERNEL_VIRT_BASE));
     enable_paging();
+}
+
+
+uint32_t* paging_create_user_directory(void) {
+    // allocate a frame for the new page directory
+    pageframe_t dir_frame = pmm_alloc_frame();
+    if (dir_frame == PMM_ERROR) {
+        terminal_writestring("PAGING: no frame for user dir\n");
+        return 0;
+    }
+
+    // map it temporarily so we can write to it
+    // use a spare virtual address above the heap
+    uint32_t dir_virt = 0xC0800000;   // temporary mapping address
+    paging_map(dir_virt, dir_frame);
+
+    uint32_t* new_dir = (uint32_t*)dir_virt;
+
+    // zero the whole directory — no user mappings yet
+    for (int i = 0; i < 1024; i++)
+        new_dir[i] = PAGE_WRITABLE;
+
+    // copy kernel mappings (slots 768-1023) from current directory
+    // this makes the kernel accessible from this process
+    for (int i = 768; i < 1024; i++)
+        new_dir[i] = page_directory[i];
+
+    return new_dir;
+}
+
+void paging_map_in(uint32_t* dir, uint32_t virt, uint32_t phys) {
+    uint32_t dir_index   = virt >> 22;
+    uint32_t table_index = (virt >> 12) & 0x3FF;
+
+    if (!(dir[dir_index] & PAGE_PRESENT)) {
+        uint32_t* new_table = alloc_page_table();
+        if (!new_table) return;
+        dir[dir_index] = ((uint32_t)new_table - KERNEL_VIRT_BASE)
+                         | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+    }
+
+    uint32_t phys_table = dir[dir_index] & ~0xFFF;
+    uint32_t* table = (uint32_t*)(phys_table + KERNEL_VIRT_BASE);
+    table[table_index] = phys | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
 }

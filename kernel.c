@@ -12,6 +12,7 @@
 #include "tss.h"
 #include "shell.h"
 #include "elf.h"
+#include "process.h"
 
 semaphore_t* term_mutex;
 
@@ -63,6 +64,14 @@ void irq_handler(void) {
     }
 }
 
+void user_process_entry(void) {
+    // this runs as a kernel task with its own page directory
+    // eventually this will switch_to_user_mode
+    terminal_writestring("user process running!\n");
+    for (;;) __asm__ volatile ("hlt");
+}
+
+
 
 void kernel_main(void) {
     gdt_init();
@@ -83,11 +92,12 @@ void kernel_main(void) {
     terminal_writestring("Kernel booted.\n");
     terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
 
+    create_kernel_task(shell_run, "shell");
 
-
-    // never reaches here
-    terminal_writestring("ERROR: still in kernel\n");
+    multitasking_ready = 1;
+    for (;;) __asm__ volatile ("hlt");
 }
+
 
 void task_a(void) {
     for (;;) {
@@ -119,3 +129,6 @@ void task_terminating(void) {
     terminate_task();
     terminal_writestring("ERROR: still running\n");
 }
+
+
+
