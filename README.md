@@ -90,3 +90,9 @@ make clean
 
 This is a learning project and is not a production OS.  
 It is built with a freestanding toolchain and booted in an emulator for development.
+
+## Credits
+
+This project was built with help from the [OSDev Wiki](https://wiki.osdev.org/), an excellent community resource for operating system development [web:12][web:16].
+
+Special thanks to the OSDev community for documentation, tutorials, and low-level systems guidance [web:12][web:16].
