@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include "task.h"
+#include "elf.h"
+#include "ramfs.h"
 
 typedef struct {
     tcb_t*    task;          // scheduler task for this process
@@ -14,5 +16,7 @@ typedef struct {
 
 process_t* process_create(void (*entry)(void), const char* name);
 void       process_destroy(process_t* proc);
+process_t* process_create_from_elf(const char* filename);
+
 
 #endif

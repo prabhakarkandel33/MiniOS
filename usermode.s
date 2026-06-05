@@ -44,3 +44,42 @@ user_entry:
 
 msg:
     .asciz "hello from ring3\n"   # spin in Ring 3
+
+.global switch_to_user_mode_entry
+.type switch_to_user_mode_entry, @function
+
+switch_to_user_mode_entry:
+    cli
+    mov $0x23, %ax
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %fs
+    mov %ax, %gs
+
+    mov 4(%esp), %eax    # user_stack
+    mov 8(%esp), %ecx    # entry point
+
+    pushl $0x23          # SS
+    pushl %eax           # ESP
+    pushfl
+    popl %eax
+    orl $0x200, %eax
+    pushl %eax           # EFLAGS
+    pushl $0x1B          # CS
+    pushl %ecx           # EIP
+    iretl
+
+.global reset_and_enter_user
+.type reset_and_enter_user, @function
+
+# void reset_and_enter_user(uint32_t new_esp0, uint32_t user_stack, uint32_t entry)
+reset_and_enter_user:
+    mov 4(%esp), %eax    # new_esp0 — top of kernel stack
+    mov 8(%esp), %ebx    # user_stack
+    mov 12(%esp), %ecx   # entry
+
+    mov %eax, %esp       # reset kernel stack to top
+
+    push %ecx            # push entry as arg2
+    push %ebx            # push user_stack as arg1
+    call switch_to_user_mode_entry

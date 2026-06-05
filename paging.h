@@ -13,9 +13,12 @@
 #define PAGE_USER       0x4
 
 
-#define USER_CODE_VIRT   0x00100000   // user code loads here
+#define USER_CODE_VIRT   0x00200000 
 #define USER_STACK_VIRT  0x00800000   // user stack here
 #define USER_STACK_SIZE  4096
+
+
+
 
 
 void paging_init(void);
@@ -25,8 +28,7 @@ extern uint32_t page_directory[];
 
 
 
-uint32_t* paging_create_user_directory(void);
-
+uint32_t* paging_create_user_directory(uint32_t* phys_out);
 
 void paging_map_in(uint32_t* dir, uint32_t virt, uint32_t phys);
 

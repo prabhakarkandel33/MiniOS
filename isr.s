@@ -4,36 +4,55 @@
 .extern exception_handler
 .extern keyboard_handler
 
-
-# Macro for exceptions that push NO error code
-# The CPU doesn't push one, so we push a dummy 0 to keep the stack uniform
+# -------------------------------------------------------
+# Exception stubs — no error code
+# Push dummy 0 so stack layout is uniform
+# -------------------------------------------------------
 .macro isr_no_err_stub num
 isr_stub_\num:
-    pusha
-    pushl $\num         # push vector as argument RIGHT before call
-    call exception_handler
-    addl $4, %esp
-    popa
-    iret
+    pushl $0            # dummy error code
+    pushl $\num         # vector number
+    jmp isr_common
 .endm
 
-
-# Macro for exceptions that DO push an error code automatically
+# -------------------------------------------------------
+# Exception stubs — CPU pushes error code automatically
+# Stack on entry: [error_code] already pushed by CPU
+# -------------------------------------------------------
 .macro isr_err_stub num
 isr_stub_\num:
-    addl $4, %esp       # discard CPU error code (don't need it yet)
-    pusha
-    pushl $\num
-    call exception_handler
-    addl $4, %esp
-    popa
-    iret
+    pushl $\num         # vector number (error code already on stack below)
+    jmp isr_common
 .endm
 
-# --- Define all 32 CPU exception handlers ---
-# Which ones push an error code is defined by Intel's spec — not your choice.
-# Vectors 8, 10, 11, 12, 13, 14, 17, 30 push error codes. The rest don't.
+# -------------------------------------------------------
+# Common exception handler path
+# Stack on entry:
+#   [vector]      <- ESP
+#   [error_code]
+#   [EIP]         <- pushed by CPU
+#   [CS]
+#   [EFLAGS]
+#  (ring3 only):
+#   [ESP_user]
+#   [SS_user]
+# -------------------------------------------------------
+isr_common:
+    pusha               # save EAX ECX EDX EBX ESP EBP ESI EDI
 
+    # pass vector number as argument
+    mov 32(%esp), %eax  # vector is at esp+32 (past 8 pushed regs)
+    pushl %eax
+    call exception_handler
+    addl $4, %esp       # clean up vector arg
+
+    popa                # restore registers
+    addl $8, %esp       # discard vector + error code
+    iret
+
+# -------------------------------------------------------
+# Define all 32 CPU exception handlers
+# -------------------------------------------------------
 isr_no_err_stub 0   # Divide-by-zero
 isr_no_err_stub 1   # Debug
 isr_no_err_stub 2   # Non-maskable interrupt
@@ -47,7 +66,7 @@ isr_no_err_stub 9   # Coprocessor segment overrun
 isr_err_stub    10  # Invalid TSS
 isr_err_stub    11  # Segment not present
 isr_err_stub    12  # Stack segment fault
-isr_err_stub    13  # General protection fault  ← you'll see this one a lot
+isr_err_stub    13  # General protection fault
 isr_err_stub    14  # Page fault
 isr_no_err_stub 15  # Reserved
 isr_no_err_stub 16  # x87 FPU error
@@ -67,11 +86,10 @@ isr_no_err_stub 29  # Reserved
 isr_err_stub    30  # Security exception
 isr_no_err_stub 31  # Reserved
 
-# --- The stub table ---
-# An array of 32 function pointers (4 bytes each with .long).
-# idt_init() in C will read this to fill the IDT.
-
-.section .rodata 
+# -------------------------------------------------------
+# ISR stub table — read by idt_init()
+# -------------------------------------------------------
+.section .rodata
 .global isr_stub_table
 isr_stub_table:
 .long isr_stub_0,  isr_stub_1,  isr_stub_2,  isr_stub_3
@@ -83,13 +101,17 @@ isr_stub_table:
 .long isr_stub_24, isr_stub_25, isr_stub_26, isr_stub_27
 .long isr_stub_28, isr_stub_29, isr_stub_30, isr_stub_31
 
-# IRQ stubs — hardware interrupts (vectors 32–47 after PIC remap)
-
+# -------------------------------------------------------
+# IRQ stubs — hardware interrupts (vectors 32-47)
+# pusha/popa to preserve registers across handler calls
+# -------------------------------------------------------
 .section .text
 .extern irq_handler
 .macro irq_stub_fn num handler
 irq_stub_\num:
+    pusha
     call \handler
+    popa
     iret
 .endm
 
@@ -110,7 +132,10 @@ irq_stub_fn 13 irq_handler
 irq_stub_fn 14 irq_handler
 irq_stub_fn 15 irq_handler
 
-.section .rodata 
+# -------------------------------------------------------
+# IRQ stub table
+# -------------------------------------------------------
+.section .rodata
 .global irq_stub_table
 irq_stub_table:
 .long irq_stub_0,  irq_stub_1,  irq_stub_2,  irq_stub_3
@@ -118,20 +143,36 @@ irq_stub_table:
 .long irq_stub_8,  irq_stub_9,  irq_stub_10, irq_stub_11
 .long irq_stub_12, irq_stub_13, irq_stub_14, irq_stub_15
 
-# syscall stub — vector 0x80
+# -------------------------------------------------------
+# Syscall stub — vector 0x80
+#
+# Stack on entry (from ring 3):
+#   [SS_user]    <- pushed by CPU
+#   [ESP_user]   <- pushed by CPU
+#   [EFLAGS]     <- pushed by CPU
+#   [CS_user]    <- pushed by CPU
+#   [EIP_user]   <- pushed by CPU
+#   <- ESP here
+#
+# We pusha to save all regs, pass pointer to saved regs
+# to syscall_handler, then write EAX return value back
+# into the saved EAX slot before restoring.
+# -------------------------------------------------------
 .section .text
 .extern syscall_handler
 
 syscall_stub:
-    pushl $0          # dummy error code
-    pushl $0x80       # vector number
-    pusha             # save all registers
-    push %esp         # pass pointer to registers as argument
+    pusha                   # save all regs — EAX is at esp+28 after this
+
+    push %esp               # arg: pointer to saved registers (syscall_regs_t*)
     call syscall_handler
-    add $4, %esp      # clean up argument
-    mov %eax, 28(%esp) # store return value back into saved eax
-    popa              # restore registers
-    addl $8, %esp     # clean up vector + error code
+    addl $4, %esp           # clean up arg
+
+    movl %eax, 28(%esp)     # write return value into saved EAX slot
+                            # pusha layout (low to high): EDI ESI EBP ESP EBX EDX ECX EAX
+                            # so EAX is at esp+28
+
+    popa                    # restore all regs (EAX now has return value)
     iret
 
 .section .rodata

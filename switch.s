@@ -1,20 +1,8 @@
-# void switch_to_task(tcb_t* next)
-#
-# Stack at entry:
-#   esp+0  = return address (pushed by call)
-#   esp+4  = next task TCB pointer (argument)
-#
-# TCB layout (must match task.h):
-#   offset 0  = esp
-#   offset 4  = esp0
-#   offset 8  = cr3
-
 .section .text
 .global switch_to_task
 .type switch_to_task, @function
 
 switch_to_task:
-    # save callee-saved registers only
     pushl %ebp
     pushl %ebx
     pushl %esi
@@ -24,17 +12,24 @@ switch_to_task:
     movl current_task, %eax
     movl %esp, (%eax)
 
-    # load next
+    # load next task
     movl 20(%esp), %esi
     movl %esi, current_task
 
     # switch stack
     movl (%esi), %esp
 
-    # restore next task's registers
+    # load next task's CR3 (offset 8 in TCB)
+    movl 8(%esi), %eax
+    movl %cr3, %ecx
+    cmpl %eax, %ecx          # skip reload if same page directory
+    je .Lno_cr3_reload
+    movl %eax, %cr3
+.Lno_cr3_reload:
+
     popl %edi
     popl %esi
     popl %ebx
     popl %ebp
 
-    ret                        # jumps to next task's saved EIP
+    ret

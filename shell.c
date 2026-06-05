@@ -7,9 +7,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "ramfs.h"
+#include "process.h"
 
 #define INPUT_BUFFER_SIZE 256
-#define MAX_ARGS          16
 
 static char input_buffer[INPUT_BUFFER_SIZE];
 static int  input_len = 0;
@@ -19,15 +19,6 @@ static int  input_len = 0;
 // -------------------------------------------------------
 static int shell_strcmp(const char* a, const char* b) {
     while (*a && *b && *a == *b) { a++; b++; }
-    return *a - *b;
-}
-
-// -------------------------------------------------------
-// helper: strncmp
-// -------------------------------------------------------
-static int shell_strncmp(const char* a, const char* b, int n) {
-    while (n-- && *a && *b && *a == *b) { a++; b++; }
-    if (n < 0) return 0;
     return *a - *b;
 }
 
@@ -72,7 +63,7 @@ static void cmd_help(void) {
     terminal_writestring("  cat      - print file contents\n");
     terminal_writestring("  rm       - delete a file\n");
     terminal_writestring("  write    - write content to file\n");
-
+    terminal_writestring("  exec     - execute ELF file\n");
 }
 
 // -------------------------------------------------------
@@ -206,6 +197,17 @@ static void process_command(void) {
             terminal_writestring("\n");
         }
 
+    } else if (shell_strcmp(cmd, "exec") == 0) {
+
+        if (shell_strlen(args) == 0) {
+            terminal_writestring("usage: exec <filename>\n");
+        } else {
+            process_t* proc = process_create_from_elf(args);
+            if (!proc) {
+                terminal_writestring("exec failed\n");
+            }
+        }
+
     } else if (shell_strcmp(cmd, "write") == 0) {
 
         // usage: write filename content
@@ -249,12 +251,10 @@ static void process_command(void) {
         }
 
     } else {
-        terminal_setcolor(
-            vga_entry_color(VGA_COLOR_LIGHT_RED, VGA_COLOR_BLACK));
+        terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_RED, VGA_COLOR_BLACK));
         terminal_writestring("Unknown command: ");
 
-        terminal_setcolor(
-            vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
+        terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
         terminal_writestring(cmd);
         terminal_writestring("\n");
         terminal_writestring("Type 'help' for available commands.\n");
@@ -278,11 +278,10 @@ void shell_handle_key(char c) {
     else if (c == '\b') {
         if (input_len > 0) {
             input_len--;
-            terminal_putchar('\b');  // one call handles everything now
+            terminal_putchar('\b');
         }
     }
-    
-     else if (input_len < INPUT_BUFFER_SIZE - 1) {
+    else if (input_len < INPUT_BUFFER_SIZE - 1) {
         input_buffer[input_len++] = c;
         terminal_putchar(c);
     }
@@ -299,7 +298,6 @@ void shell_run(void) {
     print_prompt();
 
     // shell just waits — input comes via shell_handle_key
-    // called from keyboard_handler
     for (;;) {
         __asm__ volatile ("hlt");
     }

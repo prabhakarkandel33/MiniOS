@@ -15,7 +15,7 @@ CFLAGS  = -std=gnu99 -ffreestanding -O2 -Wall -Wextra
 LDFLAGS = -T linker.ld -ffreestanding -O2 -nostdlib -lgcc
 
 # Files
-OBJ     = boot.o kernel.o gdt.o gdt_flush.o idt.o isr.o pic.o keyboard.o terminal.o paging.o paging_asm.o pmm.o heap.o task.o switch.o semaphore.o tss.o usermode.o shell.o elf.o test_module.o module_blob.o process.o syscall.o ramfs.o
+OBJ     = boot.o kernel.o gdt.o gdt_flush.o idt.o isr.o pic.o keyboard.o terminal.o paging.o paging_asm.o pmm.o heap.o task.o switch.o semaphore.o tss.o usermode.o shell.o elf.o test_module.o module_blob.o process.o syscall.o ramfs.o hello_blob.o
 KERNEL  = myos
 ISO     = myos.iso
 ISODIR  = isodir
@@ -101,9 +101,16 @@ syscall.o: syscall.c syscall.h
 ramfs.o: ramfs.c ramfs.h
 	$(CC) -c $< -o $@ $(CFLAGS)
 
+hello_user.elf: hello_user.c user.ld
+	i686-elf-gcc -ffreestanding -nostdlib -O2 -e _start \
+	    -Wl,-T,user.ld \
+	    -o hello_user.elf hello_user.c
+
+hello_blob.o: hello_user.elf
+	i686-elf-ld -r -b binary hello_user.elf -o hello_blob.o
+
 $(KERNEL): $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $^
-
 
 # ISO creation
 iso: $(KERNEL)
@@ -114,10 +121,10 @@ iso: $(KERNEL)
 
 # Running
 run: $(KERNEL)
-	$(QEMU) -kernel $(KERNEL)
+	$(QEMU) -kernel $(KERNEL) -no-reboot -no-shutdown
 
 run-iso: iso
-	$(QEMU) -cdrom $(ISO) -boot d
+	$(QEMU) -cdrom $(ISO) -boot d -no-reboot -no-shutdown
 
 # Cleanup
 clean:

@@ -63,18 +63,25 @@ __attribute__((noreturn))
 void exception_handler(uint32_t vector) {
     uint32_t cr2;
     __asm__ volatile ("mov %%cr2, %0" : "=r"(cr2));
-    terminal_setcolor(vga_entry_color(VGA_COLOR_WHITE, VGA_COLOR_RED));
-    terminal_writestring("\n*** EXCEPTION ");
-    terminal_writehex(vector);
-    terminal_writestring(": ");
-    if (vector < 32)
-        terminal_writestring(exception_names[vector]);
-    terminal_writestring(" ***\n");
-    terminal_writestring("CR2=");
-    terminal_writehex(cr2);
-    terminal_writestring("\n");
-    terminal_writestring("System halted.\n");
-    __asm__ volatile ("cli; hlt");
+    
+    // write directly to VGA row 0 — bypasses terminal state
+    volatile uint16_t* vga = (volatile uint16_t*)0xC00B8000;
+    vga[0] = 0x4F45; // 'E' red background
+    vga[1] = 0x4F58; // 'X'
+    vga[2] = 0x4F3A; // ':'
+    // write vector as hex digit
+    uint8_t v = vector & 0xFF;
+    vga[3] = 0x4F00 | (v < 10 ? '0'+v : 'A'+v-10);
+
+    // write CR2 to vga[5..12]
+    uint32_t c = cr2;
+    for (int i = 7; i >= 0; i--) {
+        uint8_t nibble = c & 0xF;
+        vga[5+i] = 0x4F00 | (nibble < 10 ? '0'+nibble : 'A'+nibble-10);
+        c >>= 4;
+    }
+
+    for(;;) __asm__ volatile ("cli; hlt");
     __builtin_unreachable();
 }
 

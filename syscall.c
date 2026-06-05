@@ -67,9 +67,9 @@ static syscall_fn_t syscall_table[] = {
 // main syscall handler — called from isr.s
 // -------------------------------------------------------
 uint32_t syscall_handler(syscall_regs_t* regs) {
-    // terminal_writestring("syscall! num=");
-    // terminal_writehex(regs->eax);
-    // terminal_writestring("\n");
+    terminal_writestring("syscall! num=");
+    terminal_writehex(regs->eax);
+    terminal_writestring("\n");
     uint32_t num = regs->eax;
 
     if (num == 0 || num >= SYSCALL_COUNT || !syscall_table[num]) {

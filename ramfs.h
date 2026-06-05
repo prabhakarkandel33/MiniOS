@@ -20,5 +20,7 @@ ramfs_node_t* ramfs_find(const char* name);
 void          ramfs_list(void);
 void          ramfs_delete(const char* name);
 int ramfs_write(const char* name, uint8_t* data, uint32_t size);
+ramfs_node_t* ramfs_create_ref(const char* name, uint8_t* data, uint32_t size);
+
 
 #endif

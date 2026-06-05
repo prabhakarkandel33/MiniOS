@@ -23,19 +23,23 @@ static heap_block_t* heap_start = 0;
 // -------------------------------------------------------
 
 static heap_block_t* heap_grow(size_t size) {
-    (void)size;
+    // calculate how many pages we need
+    size_t total = size + sizeof(heap_block_t);
+    uint32_t num_pages = (total + PAGE_SIZE - 1) / PAGE_SIZE;
+    if (num_pages == 0) num_pages = 1;
 
-    pageframe_t base = pmm_alloc_frame();
-    if (base == PMM_ERROR) return 0;
-
-    // map physical frame to next available virtual address
     uint32_t virt = heap_virt_next;
-    heap_virt_next += PAGE_SIZE;
-    paging_map(virt, base);
 
-    heap_block_t* block = (heap_block_t*)virt;   // use VIRTUAL address
+    for (uint32_t i = 0; i < num_pages; i++) {
+        pageframe_t base = pmm_alloc_frame();
+        if (base == PMM_ERROR) return 0;
+        paging_map(heap_virt_next, base);
+        heap_virt_next += PAGE_SIZE;
+    }
+
+    heap_block_t* block = (heap_block_t*)virt;
     block->magic = HEAP_MAGIC;
-    block->size  = PAGE_SIZE - sizeof(heap_block_t);
+    block->size  = (PAGE_SIZE * num_pages) - sizeof(heap_block_t);
     block->free  = 1;
     block->next  = 0;
     return block;

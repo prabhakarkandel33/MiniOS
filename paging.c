@@ -8,6 +8,7 @@
 
 
 
+
 uint32_t page_directory[PAGE_DIR_SIZE] __attribute__((aligned(4096)));
 static uint32_t first_table[1024] __attribute__((aligned(4096)));
 
@@ -81,33 +82,29 @@ void paging_init(void) {
 
     load_page_directory((uint32_t*)((uint32_t)page_directory - KERNEL_VIRT_BASE));
     enable_paging();
+
 }
 
 
-uint32_t* paging_create_user_directory(void) {
-    // allocate a frame for the new page directory
+static uint32_t dir_map_virt = 0xC0500000;
+
+uint32_t* paging_create_user_directory(uint32_t* phys_out) {
     pageframe_t dir_frame = pmm_alloc_frame();
     if (dir_frame == PMM_ERROR) {
         terminal_writestring("PAGING: no frame for user dir\n");
         return 0;
     }
 
-    // map it temporarily so we can write to it
-    // use a spare virtual address above the heap
-    uint32_t dir_virt = 0xC0800000;   // temporary mapping address
-    paging_map(dir_virt, dir_frame);
+    paging_map(dir_map_virt, dir_frame);
+    uint32_t* new_dir = (uint32_t*)dir_map_virt;
+    dir_map_virt += PAGE_SIZE;
 
-    uint32_t* new_dir = (uint32_t*)dir_virt;
-
-    // zero the whole directory — no user mappings yet
     for (int i = 0; i < 1024; i++)
         new_dir[i] = PAGE_WRITABLE;
-
-    // copy kernel mappings (slots 768-1023) from current directory
-    // this makes the kernel accessible from this process
     for (int i = 768; i < 1024; i++)
         new_dir[i] = page_directory[i];
 
+    *phys_out = dir_frame;   // return physical address to caller
     return new_dir;
 }
 
@@ -116,12 +113,29 @@ void paging_map_in(uint32_t* dir, uint32_t virt, uint32_t phys) {
     uint32_t table_index = (virt >> 12) & 0x3FF;
 
     if (!(dir[dir_index] & PAGE_PRESENT)) {
-        uint32_t* new_table = alloc_page_table();
-        if (!new_table) return;
-        dir[dir_index] = ((uint32_t)new_table - KERNEL_VIRT_BASE)
-                         | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+        // allocate a frame for the new page table
+        pageframe_t frame = pmm_alloc_frame();
+        if (frame == PMM_ERROR) {
+            terminal_writestring("paging_map_in: no frame\n");
+            return;
+        }
+
+        // map the frame so we can zero it
+        // use a temporary virtual address
+        static uint32_t tmp_virt = 0xC0600000;
+        paging_map(tmp_virt, frame);
+        uint32_t* new_table = (uint32_t*)tmp_virt;
+        tmp_virt += PAGE_SIZE;
+
+        // zero it
+        for (int i = 0; i < 1024; i++)
+            new_table[i] = PAGE_WRITABLE;
+
+        // store physical address in directory
+        dir[dir_index] = frame | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
     }
 
+    // get virtual address of the page table to write entry
     uint32_t phys_table = dir[dir_index] & ~0xFFF;
     uint32_t* table = (uint32_t*)(phys_table + KERNEL_VIRT_BASE);
     table[table_index] = phys | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;

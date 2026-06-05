@@ -76,6 +76,8 @@ void user_process_entry(void) {
 
 
 
+extern uint8_t _binary_hello_user_elf_start[];
+extern uint8_t _binary_hello_user_elf_end[];
 
 
 void kernel_main(void) {
@@ -83,6 +85,7 @@ void kernel_main(void) {
     paging_init();
     terminal_initialize();
     pic_init();
+
     idt_init();
     pmm_init(32 * 1024 * 1024);
     heap_init();
@@ -94,24 +97,32 @@ void kernel_main(void) {
     tss_flush();
 
     ramfs_init();
-    ramfs_create("readme.txt", (uint8_t*)"Welcome to prabhakarOS!\n", 24);
-    ramfs_create("hello.txt", (uint8_t*)"Hello, World!\n", 14);
+    ramfs_create_ref("hello.elf",
+    _binary_hello_user_elf_start,
+    (uint32_t)(_binary_hello_user_elf_end - _binary_hello_user_elf_start));
 
-    // debug — list right after creating
-    terminal_writestring("files after create:\n");
-    ramfs_list();
-    
+    terminal_writestring("elf start=");
+    terminal_writehex((uint32_t)_binary_hello_user_elf_start);
+    terminal_writestring("\n");
+    terminal_writestring("elf end=");
+    terminal_writehex((uint32_t)_binary_hello_user_elf_end);
+    terminal_writestring("\n");
+    terminal_writestring("elf size=");
+    terminal_writehex((uint32_t)(_binary_hello_user_elf_end - _binary_hello_user_elf_start));
+    terminal_writestring("\n");
+
+    ramfs_create("readme.txt", (uint8_t*)"Welcome to prabhakarOS!\n", 24);
+    ramfs_create("hello.txt",  (uint8_t*)"Hello, World!\n", 14);
+
     terminal_setcolor(vga_entry_color(VGA_COLOR_GREEN, VGA_COLOR_BLACK));
     terminal_writestring("Kernel booted.\n");
     terminal_setcolor(vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK));
 
-    process_create(0, "init");
     create_kernel_task(shell_run, "shell");
 
     multitasking_ready = 1;
     for (;;) __asm__ volatile ("hlt");
 }
-
 
 void task_a(void) {
     for (;;) {

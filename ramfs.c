@@ -158,3 +158,28 @@ int ramfs_write(const char* name, uint8_t* data, uint32_t size) {
     node->size = size;
     return 0;
 }
+
+ramfs_node_t* ramfs_create_ref(const char* name, uint8_t* data, uint32_t size) {
+    if (file_count >= RAMFS_MAX_FILES) return 0;
+    if (ramfs_find(name)) return 0;
+
+    ramfs_node_t* node = (ramfs_node_t*)kmalloc(sizeof(ramfs_node_t));
+    if (!node) return 0;
+
+    fs_strcpy(node->name, name, RAMFS_NAME_MAX);
+    node->size   = size;
+    node->is_dir = 0;
+    node->next   = 0;
+    node->data   = data;   // direct reference — no copy
+
+    if (!root) {
+        root = node;
+    } else {
+        ramfs_node_t* cur = root;
+        while (cur->next) cur = cur->next;
+        cur->next = node;
+    }
+
+    file_count++;
+    return node;
+}

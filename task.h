@@ -13,7 +13,7 @@
 #define TASK_TERMINATED  4
 #define TASK_PAUSED      5
 
-#define KERNEL_STACK_SIZE 2048
+#define KERNEL_STACK_SIZE 8192
 
 #define TIME_SLICE_MS 50
 extern volatile uint32_t time_slice_remaining;
