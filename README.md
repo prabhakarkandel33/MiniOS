@@ -93,6 +93,6 @@ It is built with a freestanding toolchain and booted in an emulator for developm
 
 ## Credits
 
-This project was built with help from the [OSDev Wiki](https://wiki.osdev.org/), an excellent community resource for operating system development [web:12][web:16].
+This project was built with help from the [OSDev Wiki](https://wiki.osdev.org/), an excellent community resource for operating system development.
 
-Special thanks to the OSDev community for documentation, tutorials, and low-level systems guidance [web:12][web:16].
+Special thanks to the OSDev community for documentation, tutorials, and low-level systems guidance.
