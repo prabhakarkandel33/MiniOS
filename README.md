@@ -1,4 +1,4 @@
-# MyOS
+# MiniOS
 
 MyOS is a hobby 32-bit operating system for the i686 architecture. It is built with a freestanding cross-compiler and runs in QEMU for development and testing.
 
@@ -23,26 +23,92 @@ MyOS is a hobby 32-bit operating system for the i686 architecture. It is built w
 
 MyOS uses an `i686-elf` cross-toolchain for building the kernel.
 
-### Windows
+## Windows Setup
 
-If you are on Windows, install WSL first using Microsoft’s official instructions. After WSL is installed, open Ubuntu from the Start Menu or run `wsl` in a terminal.
+If you are on Windows, install WSL first by running the following command in PowerShell as Administrator:
 
-### Linux or WSL
+```powershell
+wsl --install
+```
 
-Install the required build tools:
+This installs WSL and the default Ubuntu distribution on supported systems. After installation, restart if prompted, then open Ubuntu from the Start Menu or run:
+
+```powershell
+wsl
+```
+
+## Linux or WSL Setup
+
+Once you are inside Linux or Ubuntu on WSL, install the required build tools:
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo grub-pc-bin xorriso qemu-system-x86
 ```
 
-## Cross-Compiler
+## Cross-Compiler Installation
 
-You need a freestanding `i686-elf` GCC toolchain, which is the standard setup for OS development.
+This project requires a freestanding `i686-elf` GCC toolchain, which is the standard setup for hobby operating system development.
 
-The OSDev Wiki has a dedicated GCC cross-compiler guide that explains how to build one for your target system.
+The OSDev Wiki provides a full GCC cross-compiler guide here:
 
-Make sure `i686-elf-gcc`, `i686-elf-as`, and `i686-elf-ld` are in your `PATH` before building.
+https://wiki.osdev.org/GCC_Cross-Compiler
+
+To install the toolchain, build `binutils` and `gcc` for the `i686-elf` target, then install them into a prefix such as `/usr/local/i686-elf`.
+
+A typical setup uses the following environment variables:
+
+```bash
+export PREFIX="$HOME/opt/cross"
+export TARGET=i686-elf
+export PATH="$PREFIX/bin:$PATH"
+```
+
+After that, build and install `binutils`:
+
+```bash
+mkdir -p src
+cd src
+wget https://ftp.gnu.org/gnu/binutils/binutils-2.42.tar.gz
+tar -xvf binutils-2.42.tar.gz
+mkdir build-binutils
+cd build-binutils
+../binutils-2.42/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
+make -j$(nproc)
+make install
+```
+
+Then build and install `gcc`:
+
+```bash
+cd ..
+wget https://ftp.gnu.org/gnu/gcc/gcc-14.1.0/gcc-14.1.0.tar.gz
+tar -xvf gcc-14.1.0.tar.gz
+mkdir build-gcc
+cd build-gcc
+../gcc-14.1.0/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c --without-headers
+make all-gcc -j$(nproc)
+make all-target-libgcc -j$(nproc)
+make install-gcc
+make install-target-libgcc
+```
+
+Add the toolchain to your shell configuration so it is available every time you open a terminal:
+
+```bash
+echo 'export PREFIX="$HOME/opt/cross"' >> ~/.bashrc
+echo 'export TARGET=i686-elf' >> ~/.bashrc
+echo 'export PATH="$PREFIX/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+To verify the installation, run:
+
+```bash
+i686-elf-gcc --version
+i686-elf-as --version
+i686-elf-ld --version
+```
 
 ## Build
 
@@ -89,7 +155,7 @@ make clean
 
 ## Credits
 
-This project was built using ideas, documentation, and tutorials from the OSDev Wiki: https://wiki.osdev.org/
+This project was built using ideas, documentation, and tutorials from the [OSDev Wiki](https://wiki.osdev.org/).
 
 ## Notes
 
