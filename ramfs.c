@@ -26,7 +26,7 @@ static void fs_strcpy(char* dst, const char* src, int max) {
 void ramfs_init(void) {
     root       = 0;
     file_count = 0;
-    terminal_writestring("ramfs: initialized\n");
+    // terminal_writestring("ramfs: initialized\n");
 }
 
 // -------------------------------------------------------

@@ -1,16 +1,34 @@
 #include "syscall.h"
 #include "terminal.h"
 #include "task.h"
+#include "process.h"
+
 #include <stdint.h>
+
+process_t* current_process = 0;
 
 // -------------------------------------------------------
 // sys_exit — terminate current task
 // -------------------------------------------------------
 static uint32_t sys_exit(syscall_regs_t* regs) {
     (void)regs;
-    terminal_writestring("process exited\n");
+    // terminal_writestring("process exited\n");
+    // terminal_writestring("current_process=");
+    // terminal_writehex((uint32_t)current_process);
+    // terminal_writestring("\n");
+    // if (current_process) {
+    //     terminal_writestring("waiting_task=");
+    //     terminal_writehex((uint32_t)current_process->waiting_task);
+    //     terminal_writestring("\n");
+    // }
+    if (current_process && current_process->waiting_task) {
+        tcb_t* waiter = current_process->waiting_task;
+        current_process->waiting_task = 0;
+        // terminal_writestring("unblocking waiter\n");
+        unblock_task(waiter);
+    }
     terminate_task();
-    return 0;  // never reached
+    return 0;
 }
 
 // -------------------------------------------------------
@@ -30,13 +48,40 @@ static uint32_t sys_write(syscall_regs_t* regs) {
     return (uint32_t)-1;  // unsupported fd
 }
 
-// -------------------------------------------------------
-// sys_read — read from keyboard (fd 0 = stdin)
-// stub for now — returns 0
-// -------------------------------------------------------
+
+
+// simple keyboard buffer for user mode reads
+static char kbd_buf[256];
+static int  kbd_len = 0;
+static int  kbd_ready = 0;
+
+void syscall_kbd_input(char c) {
+    if (kbd_len < 255) {
+        kbd_buf[kbd_len++] = c;
+        if (c == '\n') kbd_ready = 1;
+    }
+}
+
+
 static uint32_t sys_read(syscall_regs_t* regs) {
-    (void)regs;
-    return 0;
+    int fd       = (int)regs->ebx;
+    char* buf    = (char*)regs->ecx;
+    uint32_t len = regs->edx;
+
+    if (fd != 0) return (uint32_t)-1;
+
+    // spin until enter pressed
+    while (!kbd_ready) {
+        __asm__ volatile ("hlt");
+    }
+
+    uint32_t n = kbd_len < (int)len ? kbd_len : len;
+    for (uint32_t i = 0; i < n; i++)
+        buf[i] = kbd_buf[i];
+
+    kbd_len   = 0;
+    kbd_ready = 0;
+    return n;
 }
 
 // -------------------------------------------------------
