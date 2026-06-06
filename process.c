@@ -41,13 +41,36 @@ void process_user_entry(void) {
 // reads stack+entry from pending_elf_args
 // -------------------------------------------------------
 void process_elf_entry(void) {
-    extern void reset_and_enter_user(uint32_t new_esp0, uint32_t user_stack, uint32_t entry);
-    elf_args_t* args = pending_elf_args;
-    // use this task's own kernel stack top, not TSS
-    uint32_t stack_top = (uint32_t)current_task->esp0;
-    reset_and_enter_user(stack_top, args->stack, args->entry);
-} 
+    terminal_writestring("process_elf_entry called\n");
+    
+    uint32_t user_stack = pending_elf_args->stack;
+    uint32_t entry      = pending_elf_args->entry;
+    uint32_t stack_top  = (uint32_t)current_task->esp0;
+    uint32_t cr3        = (uint32_t)current_task->cr3;
 
+    // terminal_writestring("cr3=");
+    // terminal_writehex(cr3);
+    // terminal_writestring("\n");
+
+    // read the user page directory directly via physical address
+    // map cr3 temporarily to check its contents
+    paging_map(0xC0700000, cr3);
+    uint32_t* udir = (uint32_t*)0xC0700000;
+    
+    // terminal_writestring("udir[0]=");
+    // terminal_writehex(udir[0]);
+    // terminal_writestring("\n");
+    // terminal_writestring("udir[2]=");  
+    // terminal_writehex(udir[2]);
+    // terminal_writestring("\n");
+    // terminal_writestring("udir[768]=");
+    // terminal_writehex(udir[768]);
+    // terminal_writestring("\n");
+
+    tss_set_kernel_stack(stack_top);
+    extern void reset_and_enter_user(uint32_t, uint32_t, uint32_t);
+    reset_and_enter_user(stack_top, user_stack, entry);
+}
 // -------------------------------------------------------
 // process_create — create a user process (legacy path)
 // -------------------------------------------------------
@@ -78,9 +101,14 @@ process_t* process_create(void (*entry)(void), const char* name) {
 
     proc->task = create_kernel_task(process_user_entry, name);
     if (!proc->task) { kfree(args); kfree(proc); return 0; }
-    proc->task->cr3 = (void*)proc->page_dir_phys;
+   proc->task->cr3 = (void*)proc->page_dir_phys;
 
-    return proc;
+    // terminal_writestring("page_dir_phys=");
+    // terminal_writehex(proc->page_dir_phys);
+    // terminal_writestring("\n");
+    // terminal_writestring("task->cr3=");
+    // terminal_writehex((uint32_t)proc->task->cr3);
+    // terminal_writestring("\n");
 }
 
 // -------------------------------------------------------
@@ -197,26 +225,26 @@ process_t* process_create_from_elf(const char* filename) {
 
 
     // debug — verify mappings in user directory
-    terminal_writestring("dir[0x200000>>22]=");
-    terminal_writehex(dir[0x200000 >> 22]);  // slot 0
-    terminal_writestring("\n");
-    terminal_writestring("dir[0x800000>>22]=");
-    terminal_writehex(dir[0x800000 >> 22]);  // slot 2
-    terminal_writestring("\n");
+    // terminal_writestring("dir[0x200000>>22]=");
+    // terminal_writehex(dir[0x200000 >> 22]);  // slot 0
+    // terminal_writestring("\n");
+    // terminal_writestring("dir[0x800000>>22]=");
+    // terminal_writehex(dir[0x800000 >> 22]);  // slot 2
+    // terminal_writestring("\n");
 
     // also check the page table entry for 0x00200000
-    if (dir[0x200000 >> 22] & 1) {
-        uint32_t* pt = (uint32_t*)((dir[0x200000 >> 22] & ~0xFFF) + 0xC0000000);
-        terminal_writestring("pte[0x200000]=");
-        terminal_writehex(pt[(0x200000 >> 12) & 0x3FF]);
-        terminal_writestring("\n");
-    }
-    if (dir[0x800000 >> 22] & 1) {
-        uint32_t* pt = (uint32_t*)((dir[0x800000 >> 22] & ~0xFFF) + 0xC0000000);
-        terminal_writestring("pte[0x800000]=");
-        terminal_writehex(pt[(0x800000 >> 12) & 0x3FF]);
-        terminal_writestring("\n");
-    }
+    // if (dir[0x200000 >> 22] & 1) {
+    //     uint32_t* pt = (uint32_t*)((dir[0x200000 >> 22] & ~0xFFF) + 0xC0000000);
+    //     terminal_writestring("pte[0x200000]=");
+    //     terminal_writehex(pt[(0x200000 >> 12) & 0x3FF]);
+    //     terminal_writestring("\n");
+    // }
+    // if (dir[0x800000 >> 22] & 1) {
+    //     uint32_t* pt = (uint32_t*)((dir[0x800000 >> 22] & ~0xFFF) + 0xC0000000);
+    //     terminal_writestring("pte[0x800000]=");
+    //     terminal_writehex(pt[(0x800000 >> 12) & 0x3FF]);
+    //     terminal_writestring("\n");
+    // }
 
     return proc;
 }

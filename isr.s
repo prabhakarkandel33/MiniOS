@@ -6,88 +6,81 @@
 
 # -------------------------------------------------------
 # Exception stubs — no error code
-# Push dummy 0 so stack layout is uniform
 # -------------------------------------------------------
 .macro isr_no_err_stub num
 isr_stub_\num:
-    pushl $0            # dummy error code
-    pushl $\num         # vector number
+    pushl $0
+    pushl $\num
     jmp isr_common
 .endm
 
 # -------------------------------------------------------
-# Exception stubs — CPU pushes error code automatically
-# Stack on entry: [error_code] already pushed by CPU
+# Exception stubs — CPU pushes error code
 # -------------------------------------------------------
 .macro isr_err_stub num
 isr_stub_\num:
-    pushl $\num         # vector number (error code already on stack below)
+    pushl $\num
     jmp isr_common
 .endm
 
 # -------------------------------------------------------
 # Common exception handler path
-# Stack on entry:
-#   [vector]      <- ESP
-#   [error_code]
-#   [EIP]         <- pushed by CPU
-#   [CS]
-#   [EFLAGS]
-#  (ring3 only):
-#   [ESP_user]
-#   [SS_user]
 # -------------------------------------------------------
 isr_common:
-    pusha               # save EAX ECX EDX EBX ESP EBP ESI EDI
+    pusha
+    movw $0x10, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
 
-    # pass vector number as argument
-    mov 32(%esp), %eax  # vector is at esp+32 (past 8 pushed regs)
+    mov 32(%esp), %eax
     pushl %eax
     call exception_handler
-    addl $4, %esp       # clean up vector arg
+    addl $4, %esp
 
-    popa                # restore registers
-    addl $8, %esp       # discard vector + error code
+    popa
+    addl $8, %esp
     iret
 
 # -------------------------------------------------------
-# Define all 32 CPU exception handlers
+# All 32 CPU exception handlers
 # -------------------------------------------------------
-isr_no_err_stub 0   # Divide-by-zero
-isr_no_err_stub 1   # Debug
-isr_no_err_stub 2   # Non-maskable interrupt
-isr_no_err_stub 3   # Breakpoint
-isr_no_err_stub 4   # Overflow
-isr_no_err_stub 5   # Bound range exceeded
-isr_no_err_stub 6   # Invalid opcode
-isr_no_err_stub 7   # Device not available
-isr_err_stub    8   # Double fault
-isr_no_err_stub 9   # Coprocessor segment overrun
-isr_err_stub    10  # Invalid TSS
-isr_err_stub    11  # Segment not present
-isr_err_stub    12  # Stack segment fault
-isr_err_stub    13  # General protection fault
-isr_err_stub    14  # Page fault
-isr_no_err_stub 15  # Reserved
-isr_no_err_stub 16  # x87 FPU error
-isr_err_stub    17  # Alignment check
-isr_no_err_stub 18  # Machine check
-isr_no_err_stub 19  # SIMD FPU exception
-isr_no_err_stub 20  # Virtualization exception
-isr_no_err_stub 21  # Reserved
-isr_no_err_stub 22  # Reserved
-isr_no_err_stub 23  # Reserved
-isr_no_err_stub 24  # Reserved
-isr_no_err_stub 25  # Reserved
-isr_no_err_stub 26  # Reserved
-isr_no_err_stub 27  # Reserved
-isr_no_err_stub 28  # Reserved
-isr_no_err_stub 29  # Reserved
-isr_err_stub    30  # Security exception
-isr_no_err_stub 31  # Reserved
+isr_no_err_stub 0
+isr_no_err_stub 1
+isr_no_err_stub 2
+isr_no_err_stub 3
+isr_no_err_stub 4
+isr_no_err_stub 5
+isr_no_err_stub 6
+isr_no_err_stub 7
+isr_err_stub    8
+isr_no_err_stub 9
+isr_err_stub    10
+isr_err_stub    11
+isr_err_stub    12
+isr_err_stub    13
+isr_err_stub    14
+isr_no_err_stub 15
+isr_no_err_stub 16
+isr_err_stub    17
+isr_no_err_stub 18
+isr_no_err_stub 19
+isr_no_err_stub 20
+isr_no_err_stub 21
+isr_no_err_stub 22
+isr_no_err_stub 23
+isr_no_err_stub 24
+isr_no_err_stub 25
+isr_no_err_stub 26
+isr_no_err_stub 27
+isr_no_err_stub 28
+isr_no_err_stub 29
+isr_err_stub    30
+isr_no_err_stub 31
 
 # -------------------------------------------------------
-# ISR stub table — read by idt_init()
+# ISR stub table
 # -------------------------------------------------------
 .section .rodata
 .global isr_stub_table
@@ -103,13 +96,18 @@ isr_stub_table:
 
 # -------------------------------------------------------
 # IRQ stubs — hardware interrupts (vectors 32-47)
-# pusha/popa to preserve registers across handler calls
 # -------------------------------------------------------
 .section .text
 .extern irq_handler
+
 .macro irq_stub_fn num handler
 irq_stub_\num:
     pusha
+    movw $0x10, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
     call \handler
     popa
     iret
@@ -145,34 +143,25 @@ irq_stub_table:
 
 # -------------------------------------------------------
 # Syscall stub — vector 0x80
-#
-# Stack on entry (from ring 3):
-#   [SS_user]    <- pushed by CPU
-#   [ESP_user]   <- pushed by CPU
-#   [EFLAGS]     <- pushed by CPU
-#   [CS_user]    <- pushed by CPU
-#   [EIP_user]   <- pushed by CPU
-#   <- ESP here
-#
-# We pusha to save all regs, pass pointer to saved regs
-# to syscall_handler, then write EAX return value back
-# into the saved EAX slot before restoring.
 # -------------------------------------------------------
 .section .text
 .extern syscall_handler
 
 syscall_stub:
-    pusha                   # save all regs — EAX is at esp+28 after this
+    pusha
+    movw $0x10, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
 
-    push %esp               # arg: pointer to saved registers (syscall_regs_t*)
+    push %esp
     call syscall_handler
-    addl $4, %esp           # clean up arg
+    addl $4, %esp
 
-    movl %eax, 28(%esp)     # write return value into saved EAX slot
-                            # pusha layout (low to high): EDI ESI EBP ESP EBX EDX ECX EAX
-                            # so EAX is at esp+28
+    movl %eax, 28(%esp)
 
-    popa                    # restore all regs (EAX now has return value)
+    popa
     iret
 
 .section .rodata

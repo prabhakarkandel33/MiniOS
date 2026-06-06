@@ -101,15 +101,15 @@ void kernel_main(void) {
     _binary_hello_user_elf_start,
     (uint32_t)(_binary_hello_user_elf_end - _binary_hello_user_elf_start));
 
-    terminal_writestring("elf start=");
-    terminal_writehex((uint32_t)_binary_hello_user_elf_start);
-    terminal_writestring("\n");
-    terminal_writestring("elf end=");
-    terminal_writehex((uint32_t)_binary_hello_user_elf_end);
-    terminal_writestring("\n");
-    terminal_writestring("elf size=");
-    terminal_writehex((uint32_t)(_binary_hello_user_elf_end - _binary_hello_user_elf_start));
-    terminal_writestring("\n");
+    // terminal_writestring("elf start=");
+    // terminal_writehex((uint32_t)_binary_hello_user_elf_start);
+    // terminal_writestring("\n");
+    // terminal_writestring("elf end=");
+    // terminal_writehex((uint32_t)_binary_hello_user_elf_end);
+    // terminal_writestring("\n");
+    // terminal_writestring("elf size=");
+    // terminal_writehex((uint32_t)(_binary_hello_user_elf_end - _binary_hello_user_elf_start));
+    // terminal_writestring("\n");
 
     ramfs_create("readme.txt", (uint8_t*)"Welcome to prabhakarOS!\n", 24);
     ramfs_create("hello.txt",  (uint8_t*)"Hello, World!\n", 14);

@@ -30,6 +30,9 @@ switch_to_user_mode:
     iretl
 
 user_entry:
+    mov $0x3F8, %edx
+    mov $'U', %al
+    outb %al, %dx  
     mov $2, %eax        # SYS_WRITE
     mov $1, %ebx        # stdout
     mov $msg, %ecx      # buffer — kernel address, accessible from user
@@ -74,12 +77,29 @@ switch_to_user_mode_entry:
 
 # void reset_and_enter_user(uint32_t new_esp0, uint32_t user_stack, uint32_t entry)
 reset_and_enter_user:
-    mov 4(%esp), %eax    # new_esp0 — top of kernel stack
-    mov 8(%esp), %ebx    # user_stack
+    mov 4(%esp), %eax    # new_esp0
+    mov 8(%esp), %ebx    # user_stack  
     mov 12(%esp), %ecx   # entry
 
-    mov %eax, %esp       # reset kernel stack to top
+    # print 'R' to serial before iretl
+    push %eax
+    push %ebx  
+    push %ecx
+    mov $0x3F8, %edx
+    mov $'R', %al
+    outb %al, %dx
+    pop %ecx
+    pop %ebx
+    pop %eax
 
-    push %ecx            # push entry as arg2
-    push %ebx            # push user_stack as arg1
-    call switch_to_user_mode_entry
+    mov %eax, %esp
+    cli
+    push $0x23
+    push %ebx
+    pushfl
+    pop %eax
+    or $0x200, %eax
+    push %eax
+    push $0x1B
+    push %ecx
+    iretl

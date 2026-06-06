@@ -113,29 +113,26 @@ void paging_map_in(uint32_t* dir, uint32_t virt, uint32_t phys) {
     uint32_t table_index = (virt >> 12) & 0x3FF;
 
     if (!(dir[dir_index] & PAGE_PRESENT)) {
-        // allocate a frame for the new page table
         pageframe_t frame = pmm_alloc_frame();
         if (frame == PMM_ERROR) {
             terminal_writestring("paging_map_in: no frame\n");
             return;
         }
 
-        // map the frame so we can zero it
-        // use a temporary virtual address
         static uint32_t tmp_virt = 0xC0600000;
         paging_map(tmp_virt, frame);
         uint32_t* new_table = (uint32_t*)tmp_virt;
         tmp_virt += PAGE_SIZE;
 
-        // zero it
         for (int i = 0; i < 1024; i++)
             new_table[i] = PAGE_WRITABLE;
 
-        // store physical address in directory
         dir[dir_index] = frame | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+
+        // map at phys+KERNEL_VIRT_BASE so read-back works
+        paging_map(frame + KERNEL_VIRT_BASE, frame);
     }
 
-    // get virtual address of the page table to write entry
     uint32_t phys_table = dir[dir_index] & ~0xFFF;
     uint32_t* table = (uint32_t*)(phys_table + KERNEL_VIRT_BASE);
     table[table_index] = phys | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
