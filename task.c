@@ -187,13 +187,13 @@ tcb_t* create_kernel_task(void (*entry)(void), const char* name) {
     tcb_t* task = (tcb_t*)kmalloc(sizeof(tcb_t));
     // terminal_writestring("alloc stack\n");
     uint8_t* stack = (uint8_t*)kmalloc(KERNEL_STACK_SIZE);
-    terminal_writestring("stack alloc: ptr=");
-    terminal_writehex((uint32_t)stack);
-    terminal_writestring(" top=");
-    terminal_writehex((uint32_t)(stack + KERNEL_STACK_SIZE));
-    terminal_writestring(" size=");
-    terminal_writehex(KERNEL_STACK_SIZE);
-    terminal_writestring("\n");
+    // terminal_writestring("stack alloc: ptr=");
+    // terminal_writehex((uint32_t)stack);
+    // terminal_writestring(" top=");
+    // terminal_writehex((uint32_t)(stack + KERNEL_STACK_SIZE));
+    // terminal_writestring(" size=");
+    // terminal_writehex(KERNEL_STACK_SIZE);
+    // terminal_writestring("\n");
     
    
 

@@ -205,6 +205,9 @@ static void process_command(void) {
             process_t* proc = process_create_from_elf(args);
             if (!proc) {
                 terminal_writestring("exec failed\n");
+            }else{
+                    process_wait(proc);
+    
             }
         }
 

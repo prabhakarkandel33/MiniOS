@@ -11,10 +11,12 @@
 
 static uint32_t next_pid = 1;
 
+extern process_t* current_process;
 // per-ELF launch args — heap allocated, set before task creation
 typedef struct {
     uint32_t stack;
     uint32_t entry;
+    process_t* proc;
 } elf_args_t;
 
 static elf_args_t* pending_elf_args = 0;
@@ -41,34 +43,14 @@ void process_user_entry(void) {
 // reads stack+entry from pending_elf_args
 // -------------------------------------------------------
 void process_elf_entry(void) {
-    terminal_writestring("process_elf_entry called\n");
-    
-    uint32_t user_stack = pending_elf_args->stack;
-    uint32_t entry      = pending_elf_args->entry;
-    uint32_t stack_top  = (uint32_t)current_task->esp0;
-    uint32_t cr3        = (uint32_t)current_task->cr3;
+    extern void reset_and_enter_user(uint32_t, uint32_t, uint32_t);
 
-    // terminal_writestring("cr3=");
-    // terminal_writehex(cr3);
-    // terminal_writestring("\n");
-
-    // read the user page directory directly via physical address
-    // map cr3 temporarily to check its contents
-    paging_map(0xC0700000, cr3);
-    uint32_t* udir = (uint32_t*)0xC0700000;
-    
-    // terminal_writestring("udir[0]=");
-    // terminal_writehex(udir[0]);
-    // terminal_writestring("\n");
-    // terminal_writestring("udir[2]=");  
-    // terminal_writehex(udir[2]);
-    // terminal_writestring("\n");
-    // terminal_writestring("udir[768]=");
-    // terminal_writehex(udir[768]);
-    // terminal_writestring("\n");
+    uint32_t user_stack  = pending_elf_args->stack;
+    uint32_t entry       = pending_elf_args->entry;
+    uint32_t stack_top   = (uint32_t)current_task->esp0;
+    current_process      = pending_elf_args->proc;
 
     tss_set_kernel_stack(stack_top);
-    extern void reset_and_enter_user(uint32_t, uint32_t, uint32_t);
     reset_and_enter_user(stack_top, user_stack, entry);
 }
 // -------------------------------------------------------
@@ -211,7 +193,9 @@ process_t* process_create_from_elf(const char* filename) {
     if (!args) { kfree(proc); return 0; }
     args->stack = proc->user_stack;
     args->entry = entry;
+    args->proc  = proc;
     pending_elf_args = args;   // must be set before task runs
+
 
     proc->task = create_kernel_task(process_elf_entry, filename);
     if (!proc->task) { kfree(args); kfree(proc); return 0; }
@@ -219,8 +203,8 @@ process_t* process_create_from_elf(const char* filename) {
 
     terminal_writestring("exec: loaded ");
     terminal_writestring(filename);
-    terminal_writestring(" entry=");
-    terminal_writehex(entry);
+    // terminal_writestring(" entry=");
+    // terminal_writehex(entry);
     terminal_writestring("\n");
 
 
@@ -247,4 +231,13 @@ process_t* process_create_from_elf(const char* filename) {
     // }
 
     return proc;
+}
+
+void process_wait(process_t* proc) {
+    if (!proc) return;
+    // store current task as the waiter
+    proc->waiting_task = current_task;
+    // block until child exits
+    block_task(TASK_BLOCKED);
+    // when we return here the child has exited
 }

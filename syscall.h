@@ -22,5 +22,6 @@ typedef struct {
 
 void syscall_init(void);
 uint32_t syscall_handler(syscall_regs_t* regs);
+void syscall_kbd_input(char c);
 
 #endif
