@@ -29,7 +29,8 @@ void gdt_init(void) {
     gdt_set_entry(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);     // user data
 
     // TSS entry — base = address of sys_tss, limit = size of TSS
-    uint32_t tss_base = (uint32_t)&sys_tss - 0xC0000000;  // physical
+    // TSS entry — use VIRTUAL address
+    uint32_t tss_base  = (uint32_t)&sys_tss;   // virtual — NOT physical
     uint32_t tss_limit = sizeof(tss_t) - 1;
     gdt_set_entry(5, tss_base, tss_limit, 0x89, 0x00);
 
